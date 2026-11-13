@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -30,7 +29,8 @@ class Product extends Model
             return $image;
         }
 
-        return Storage::disk('public')->url($image);
+        // asset() memakai host dari request saat ini, jadi tidak bergantung pada APP_URL.
+        return asset('storage/'.ltrim($image, '/'));
     }
 
     /** Jumlah unit maksimum yang dipesan pada satu hari mana pun (pesanan aktif). */
