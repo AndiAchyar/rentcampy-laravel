@@ -1,0 +1,7 @@
+/vendor
+/node_modules
+/docs
+/tests
+/Dockerfile
+/.dockerignore
+/docker

@@ -5,12 +5,11 @@ namespace Database\Seeders;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
-    /** [nama, kategori, deskripsi, harga/hari, file foto di database/seeders/images] */
+    /** [nama, kategori, deskripsi, harga/hari, file foto di public/images/products] */
     private const PRODUCTS = [
         ['Tenda Dome 2 Orang', 'Tenda', 'Tenda dome ringan untuk 2 orang, double layer, anti air dan mudah dipasang. Cocok untuk pendakian.', 50000, '26_Tenda_Dome_2_Orang.png'],
         ['Tenda Dome 4 Orang', 'Tenda', 'Tenda dome kapasitas 4 orang dengan ruang luas dan ventilasi baik. Cocok untuk camping keluarga.', 80000, '27_Tenda_Dome_4_Orang.png'],
@@ -38,8 +37,8 @@ class DatabaseSeeder extends Seeder
         ['Peralatan Makan Set', 'Peralatan Masak', 'Set alat makan camping yang berisi piring, mangkuk, gelas, dan sendok.', 12000, '16_Peralatan_Makan_Set.png'],
         ['Teko Camping', 'Peralatan Masak', 'Teko aluminium ringan untuk merebus air menggunakan kompor portable.', 12000, '17_Teko_Camping.png'],
         ['Grill Portable', 'Peralatan Masak', 'Pemanggang lipat ringkas untuk memasak makanan di area camping.', 25000, '18_Grill_Portable.png'],
-        ['Pompa Matras', 'Alat Tidur', 'Pompa tangan praktis untuk mengisi matras angin tanpa membutuhkan listrik.', 10000, '8_Pompa_Matras.png'],
-        ['Tenda Dome 3 Orang', 'Tenda', 'Tenda dome tiga orang dengan ventilasi dan lapisan pelindung hujan.', 70000, '9_Tenda_Dome_3_Orang.png'],
+        ['Pompa Matras', 'Alat Tidur', 'Pompa tangan praktis untuk mengisi matras angin tanpa membutuhkan listrik.', 10000, '08_Pompa_Matras.png'],
+        ['Tenda Dome 3 Orang', 'Tenda', 'Tenda dome tiga orang dengan ventilasi dan lapisan pelindung hujan.', 70000, '09_Tenda_Dome_3_Orang.png'],
         ['Nesting Mini', 'Peralatan Masak', 'Nesting ringkas untuk satu sampai dua orang, cocok untuk perjalanan singkat.', 15000, '10_Nesting_Mini.png'],
         ['Tenda Footprint', 'Tenda', 'Alas tambahan untuk melindungi bagian bawah tenda dari tanah lembap dan benda tajam.', 12000, '11_Tenda_Footprint.png'],
     ];
@@ -47,11 +46,17 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $adminEmail = env('ADMIN_EMAIL', 'admin@gmail.com');
-        User::firstOrCreate(
-            ['email' => strtolower($adminEmail)],
-            ['password' => env('ADMIN_PASSWORD', 'admin123'), 'role' => 'admin'],
-        );
-        $this->command?->info("Admin: {$adminEmail}");
+        $adminPassword = env('ADMIN_PASSWORD');
+        if (! $adminPassword && app()->isProduction()) {
+            // Di production jangan pernah membuat admin dengan password bawaan.
+            $this->command?->warn('ADMIN_PASSWORD belum diisi: akun admin tidak dibuat.');
+        } else {
+            User::firstOrCreate(
+                ['email' => strtolower($adminEmail)],
+                ['password' => $adminPassword ?: 'admin123', 'role' => 'admin'],
+            );
+            $this->command?->info("Admin: {$adminEmail}");
+        }
 
         $inserted = 0;
         $photosSet = 0;
@@ -69,8 +74,8 @@ class DatabaseSeeder extends Seeder
             }
 
             // Pasang foto asli hanya jika produk belum punya foto sendiri
-            // (kosong atau masih placeholder lama), agar upload admin tidak tertimpa.
-            if (! $product->image || str_starts_with($product->image, 'data:')) {
+            // (kosong atau masih path lama di storage), agar upload admin tidak tertimpa.
+            if (! $product->image || str_starts_with($product->image, 'products/seed/')) {
                 $product->image = $this->storePhoto($photo);
                 $photosSet++;
             }
@@ -80,16 +85,13 @@ class DatabaseSeeder extends Seeder
         $this->command?->info("{$inserted} produk contoh ditambahkan, {$photosSet} foto dipasang.");
     }
 
-    /** Salin foto dari database/seeders/images ke storage publik, kembalikan path-nya. */
+    /** Foto produk bawaan disajikan langsung dari public/images/products. */
     private function storePhoto(string $file): string
     {
-        $source = database_path('seeders/images/'.$file);
-        if (! is_file($source)) {
-            throw new RuntimeException("Foto produk tidak ditemukan: {$source}");
+        $path = 'images/products/'.strtolower($file);
+        if (! is_file(public_path($path))) {
+            throw new RuntimeException("Foto produk tidak ditemukan: {$path}");
         }
-
-        $path = 'products/seed/'.strtolower($file);
-        Storage::disk('public')->put($path, file_get_contents($source));
 
         return $path;
     }

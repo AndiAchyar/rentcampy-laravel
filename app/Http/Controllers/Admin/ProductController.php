@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -28,7 +29,7 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request, true);
-        $data['image'] = $request->file('image')->store('products', 'public');
+        $data['image'] = $this->imageToDataUri($request->file('image'));
         Product::create($data);
 
         return redirect()->route('admin.products.index')->with('success', 'Produk berhasil ditambahkan!');
@@ -48,7 +49,7 @@ class ProductController extends Controller
             // Tanpa gambar baru, gambar lama dipertahankan.
             if ($request->hasFile('image')) {
                 $oldImage = $product->image;
-                $data['image'] = $request->file('image')->store('products', 'public');
+                $data['image'] = $this->imageToDataUri($request->file('image'));
                 $this->deleteStoredImage($oldImage);
             }
             $product->update($data);
@@ -93,7 +94,7 @@ class ProductController extends Controller
             'description' => ['required', 'string'],
             'price' => ['required', 'integer', 'min:0', 'max:2000000000'],
             'stock' => ['required', 'integer', 'min:0', 'max:1000000'],
-            'image' => [$imageRequired ? 'required' : 'nullable', 'image', 'max:5120'],
+            'image' => [$imageRequired ? 'required' : 'nullable', 'image', 'max:2048'],
         ], [
             'name.required' => 'Nama produk wajib diisi.',
             'category.required' => 'Kategori wajib diisi.',
@@ -107,8 +108,17 @@ class ProductController extends Controller
             'stock.min' => 'Stok harus bilangan bulat >= 0.',
             'image.required' => 'Silakan pilih gambar untuk produk.',
             'image.image' => 'File yang dipilih bukan gambar.',
-            'image.max' => 'Ukuran gambar maksimal 5 MB.',
+            'image.max' => 'Ukuran gambar maksimal 2 MB.',
         ]);
+    }
+
+    /**
+     * Simpan gambar sebagai data URI di database. Disk Vercel tidak permanen,
+     * jadi file upload tidak bisa disimpan di storage/.
+     */
+    private function imageToDataUri(UploadedFile $file): string
+    {
+        return 'data:'.$file->getMimeType().';base64,'.base64_encode($file->get());
     }
 
     private function deleteStoredImage(?string $image): void

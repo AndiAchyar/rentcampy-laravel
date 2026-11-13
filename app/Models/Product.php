@@ -29,6 +29,11 @@ class Product extends Model
             return $image;
         }
 
+        // Foto bawaan ada di public/images/products.
+        if (str_starts_with($image, 'images/')) {
+            return asset($image);
+        }
+
         // asset() memakai host dari request saat ini, jadi tidak bergantung pada APP_URL.
         return asset('storage/'.ltrim($image, '/'));
     }
